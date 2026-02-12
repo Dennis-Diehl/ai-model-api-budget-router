@@ -4,9 +4,11 @@ from backend.model_config import MODELS
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimate the number of tokens for a given text.
+    """Estimate the number of tokens based on text characteristics.
 
-    Uses a simple heuristic of ~4 characters per token.
+    Uses content-aware heuristics: code (~3 chars/token), technical/long-word
+    text (~5 chars/token), and normal English (~4 chars/token). Adjusts for
+    high whitespace ratio.
 
     Args:
         text: The text to estimate tokens for.
@@ -14,7 +16,66 @@ def estimate_tokens(text: str) -> int:
     Returns:
         Estimated token count (minimum 1).
     """
-    return max(1, len(text) // 4)
+    if not text.strip():
+        return 1
+
+    length = len(text)
+
+    code_indicators = sum(1 for c in text if c in '{}();=<>[]')
+    code_ratio = code_indicators / max(length, 1)
+
+    whitespace_ratio = sum(1 for c in text if c.isspace()) / max(length, 1)
+
+    words = text.split()
+    avg_word_len = sum(len(w) for w in words) / max(len(words), 1)
+
+    if code_ratio > 0.05:
+        chars_per_token = 3.0
+    elif avg_word_len > 7:
+        chars_per_token = 5.0
+    else:
+        chars_per_token = 4.0
+
+    if whitespace_ratio > 0.3:
+        chars_per_token *= 0.9
+
+    return max(1, int(length / chars_per_token))
+
+
+OUTPUT_MULTIPLIERS = {
+    "summarize": 0.3,
+    "email": 0.8,
+    "code": 2.5,
+    "general": 1.5,
+}
+
+MIN_OUTPUT_TOKENS = {
+    "summarize": 100,
+    "email": 200,
+    "code": 300,
+    "general": 150,
+}
+
+
+def estimate_output_tokens(input_tokens: int, task_type: str, model_max_tokens: int) -> int:
+    """Estimate output tokens based on task type and input length.
+
+    Uses task-specific multipliers and minimum output floors. Result is
+    capped at the model's max_tokens.
+
+    Args:
+        input_tokens: Estimated input token count.
+        task_type: Task category (e.g. "general", "code", "email", "summarize").
+        model_max_tokens: Maximum tokens the model can generate.
+
+    Returns:
+        Estimated output token count.
+    """
+    multiplier = OUTPUT_MULTIPLIERS.get(task_type, 1.5)
+    min_output = MIN_OUTPUT_TOKENS.get(task_type, 150)
+
+    estimated = max(min_output, int(input_tokens * multiplier))
+    return min(estimated, model_max_tokens)
 
 
 def estimate_cost(model_id: str, input_tokens: int, output_tokens: int) -> float:
