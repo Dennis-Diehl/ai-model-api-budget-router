@@ -32,7 +32,7 @@ def select_model(
     for model_id, config in MODELS.items():
         if config["quality_score"] < min_quality_score:
             continue
-        is_affordable, estimated_cost = check_budget(model_id, prompt, budget)
+        is_affordable, estimated_cost = check_budget(model_id, prompt, budget, task_type)
         if not is_affordable:
             continue
         score = config["quality_score"]
@@ -45,7 +45,7 @@ def select_model(
         # Fallback: find the cheapest affordable model ignoring quality
         affordable_models = []
         for model_id, config in MODELS.items():
-            is_affordable, estimated_cost = check_budget(model_id, prompt, budget)
+            is_affordable, estimated_cost = check_budget(model_id, prompt, budget, task_type)
             if is_affordable:
                 affordable_models.append((model_id, estimated_cost))
         if not affordable_models:
