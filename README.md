@@ -4,7 +4,8 @@ A web app that routes AI prompts to the best LLM based on budget, task type, and
 
 ## Demo
 
-> **Screenshot coming soon** - Run the app locally to see the interactive Streamlit UI with chat interface, real-time routing details, and usage dashboard.
+![App Screenshot](images/BudgetRouterIMG.png)
+
 
 ## Why This Project?
 
@@ -188,13 +189,6 @@ Planned enhancements to make this project even more powerful:
 - **Cost Forecasting**: Predict monthly costs based on usage patterns
 - **Budget per Task Type**: Separate budgets for code, email, summarize tasks
 
-### Enhanced Chat Features
-- **Chat History Export**: Download conversations as JSON/Markdown
-- **Chat Search**: Search through previous conversations
-- **Conversation Branching**: Fork conversations to try different approaches
-- **Prompt Templates**: Save and reuse common prompts
-- **Multi-Chat Sessions**: Manage multiple concurrent conversations
-
 ### Model Comparison & A/B Testing
 - **Side-by-side Comparison**: Get responses from multiple models simultaneously
 - **Response Quality Voting**: Rate responses to improve routing over time
@@ -214,38 +208,12 @@ Planned enhancements to make this project even more powerful:
 - **Role-based Access**: Admin, user, viewer roles with different permissions
 - **Usage Attribution**: Track costs per user/team member
 
-### API & Integration Features
-- **Public API**: RESTful API for programmatic access to routing
-- **Webhooks**: Send routing results to external services
-- **Slack/Discord Bot**: Chat with AI directly in messaging platforms
-- **CI/CD Integration**: Use as a code review assistant in GitHub Actions
-- **Export to Notion/Obsidian**: Save conversations to knowledge bases
-
 ### Advanced Routing Features
 - **Custom Model Weights**: Fine-tune scoring algorithm per user preferences
 - **Model Blacklist/Whitelist**: Exclude or prefer specific models
 - **Conditional Routing**: Different routing rules based on time, budget remaining, etc.
 - **Manual Model Override**: Option to manually select a specific model
 - **Hybrid Routing**: Combine multiple models' outputs for critical tasks
-
-### Developer Experience
-- **Dark Mode**: Toggle between light/dark themes
-- **Keyboard Shortcuts**: Power-user navigation (Cmd+Enter to submit, etc.)
-- **Responsive Design**: Mobile-optimized UI
-- **Syntax Highlighting**: Code blocks with language detection
-- **Copy Code Button**: One-click copy for code snippets
-- **Streaming Responses**: Show AI responses as they're generated (token-by-token)
-
-### Production-Ready Features
-- **Docker Deployment**: Containerized setup for easy deployment
-- **Database Backend**: Replace JSONL logs with PostgreSQL/SQLite
-- **Log Rotation**: Prevent logs from growing indefinitely
-- **Rate Limiting**: Protect API from abuse
-- **Retry Logic**: Auto-retry failed LLM requests
-- **Multi-Provider Support**: Add OpenAI, Anthropic, Cohere APIs alongside Groq
-- **Caching**: Cache identical prompts to save costs
-
-**Want to contribute?** These features are open for community contributions. Check the issues tab or submit a PR!
 
 ## License
 
