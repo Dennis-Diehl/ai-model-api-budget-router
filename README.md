@@ -4,7 +4,7 @@ A web app that routes AI prompts to the best LLM based on budget, task type, and
 
 ## Demo
 
-![App Screenshot](images/BudgetRouterIMG.png)
+![App Screenshot](docs/images/BudgetRouterIMG.png)
 
 
 ## Why This Project?
