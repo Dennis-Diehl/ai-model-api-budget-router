@@ -2,12 +2,44 @@
 
 A web app that routes AI prompts to the best LLM based on budget, task type, and quality level. Uses the Groq API for fast inference.
 
+## Demo
+
+> **Screenshot coming soon** - Run the app locally to see the interactive Streamlit UI with chat interface, real-time routing details, and usage dashboard.
+
+## Why This Project?
+
+This project demonstrates:
+- **Full-Stack Development** - FastAPI backend + Streamlit frontend
+- **API Integration** - Groq LLM API with proper error handling and retry logic
+- **Cost Optimization** - Smart routing algorithm that balances quality and budget constraints
+- **Production-Ready Code** - Pydantic validation, structured logging, clean architecture
+- **Real-World Problem Solving** - Managing AI API costs is a real challenge for startups and developers
+
 ## Features
 
-- **Smart Routing** - Selects the optimal model based on task type, quality requirements, and budget
-- **Budget Guard** - Ensures requests stay within your specified budget
-- **Cost Tracking** - Logs every request with estimated and actual costs
-- **Usage Dashboard** - View stats on model usage and spending
+- **Smart Routing** - Selects the optimal model based on task type (code, Email, analysis, general), quality requirements, and budget constraints
+- **Budget Guard** - Prevents requests that would exceed your specified budget before making API calls
+- **Cost Tracking** - Logs every request with estimated and actual costs in JSONL format for analysis
+- **Interactive Chat UI** - Streamlit-based interface with real-time routing details and cost breakdown
+- **Usage Dashboard** - Live statistics on model usage, total spending, and request patterns
+- **Multiple Quality Tiers** - Choose between high, medium, and low quality based on your needs
+- **Task-Specific Optimization** - Models are scored higher for tasks they excel at (e.g., LLaMA 3.3 70B for code)
+
+## Tech Stack
+
+**Backend**:
+- FastAPI - Modern Python web framework with automatic OpenAPI docs
+- Pydantic - Data validation and settings management
+- HTTPX - Async HTTP client for LLM API requests
+- uvicorn - Lightning-fast ASGI server
+
+**Frontend**:
+- Streamlit - Interactive web UI with real-time updates
+- Requests - HTTP client for backend communication
+
+**LLM API**:
+- Groq - Ultra-fast inference API (up to 750 tokens/sec)
+- Models: LLaMA 3.3 70B, Mixtral 8x7B, Gemma 2 9B, LLaMA 3.1 8B
 
 ## Prerequisites
 
@@ -19,7 +51,7 @@ A web app that routes AI prompts to the best LLM based on budget, task type, and
 ### 1. Clone & install dependencies
 
 ```bash
-git clone https://github.com/yourusername/ai-model-api-budget-router.git
+git clone https://github.com/YOUR_USERNAME/ai-model-api-budget-router.git
 cd ai-model-api-budget-router
 python3.13 -m venv .venv
 source .venv/bin/activate
@@ -53,6 +85,27 @@ For the usage dashboard:
 streamlit run frontend/dashboard.py
 ```
 
+## Example Output
+
+When you send a prompt, the router returns detailed information about the selected model and costs:
+
+```json
+{
+  "model": "llama-3.3-70b-versatile",
+  "response": "Quicksort is a divide-and-conquer sorting algorithm that works by selecting a 'pivot' element...",
+  "estimated_cost": 0.0045,
+  "actual_cost": 0.0042,
+  "tokens_used": 523,
+  "routing_reason": "Best quality match for code tasks within budget"
+}
+```
+
+The chat UI displays this information in a user-friendly format with:
+- Model indicator with emoji (🚀 for high-quality, ⚡ for fast/cheap)
+- Cost breakdown (estimated vs actual)
+- Token usage
+- Routing explanation
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -74,8 +127,8 @@ curl -X POST http://localhost:8000/route \
 | Model | Quality Score | Strengths |
 |-------|--------------|-----------|
 | LLaMA 3.3 70B | 85 | General, Code, Analysis |
-| Mixtral 8x7B | 75 | Code, Analysis, Creative |
-| Gemma 2 9B | 65 | General, Creative |
+| Mixtral 8x7B | 75 | Code, Summarize, Email|
+| Gemma 2 9B | 65 | General, Email |
 | LLaMA 3.1 8B | 60 | General |
 
 ## Project Structure
