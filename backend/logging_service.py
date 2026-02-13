@@ -1,81 +1,93 @@
-"""Schritt 7: Logging Service.
+"""Logging Service — stores every API request as a JSON line in a log file.
 
-Hier speicherst du jede API-Anfrage in einer JSONL-Datei (JSON Lines).
-Jede Zeile in der Datei ist ein eigenstaendiges JSON-Objekt.
+Each line in the log file is a standalone JSON object (JSONL format).
+This makes it easy to append new entries without reading the whole file.
 
-Lernziele:
-- Dateien schreiben und lesen mit pathlib
-- JSON serialisieren/deserialisieren
-- JSONL Format (eine JSON-Zeile pro Eintrag)
-- datetime fuer Zeitstempel
-
-Beispiel JSONL:
-  {"timestamp": "2024-01-15T10:30:00+00:00", "model": "llama-3.3-70b", "cost": 0.001}
-  {"timestamp": "2024-01-15T10:31:00+00:00", "model": "gemma2-9b", "cost": 0.0002}
+Example log file (requests.jsonl):
+    {"timestamp": "2026-02-12T14:30:00+00:00", "model": "llama-3.3-70b-versatile", "cost": 0.001}
+    {"timestamp": "2026-02-12T14:31:00+00:00", "model": "openai/gpt-oss-20b", "cost": 0.0002}
 """
 
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Path to the logs directory and log file (relative to project root)
+# __file__ = this file → .parent = backend/ → .parent = project root → / "logs"
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_FILE = LOGS_DIR / "requests.jsonl"
 
 
 def log_request(data: dict) -> None:
-    """Speichere einen Request-Log-Eintrag als JSON-Zeile.
-
-    TODO:
-    1. Stelle sicher dass LOGS_DIR existiert: LOGS_DIR.mkdir(exist_ok=True)
-    2. Erstelle den Log-Eintrag als Dictionary:
-       - "timestamp": aktueller Zeitpunkt als ISO-String
-         -> datetime.now(timezone.utc).isoformat()
-       - Plus alle Key-Value-Paare aus dem data Dictionary
-         -> Tipp: {**dict1, **dict2} merged zwei Dicts
-    3. Oeffne LOG_FILE im Append-Modus ("a") und schreibe:
-       -> json.dumps(entry) + "\\n"
+    """Append a request log entry as a JSON line to the log file.
 
     Args:
-        data: Dictionary mit den zu loggenden Daten.
+        data: Dictionary with the data to log (e.g. model, cost, tokens).
     """
-    pass
+    # Create the logs/ directory if it doesn't exist yet
+    LOGS_DIR.mkdir(exist_ok=True)
+
+    # Build the log entry: current timestamp + all data fields merged together
+    entry = {"timestamp": datetime.now(timezone.utc).isoformat(), **data}
+
+    # Open the file in append mode ("a") so we add to the end, never overwrite
+    with LOG_FILE.open("a") as f:
+        # Convert dict to JSON string and write as one line
+        f.write(json.dumps(entry) + "\n")
 
 
 def read_logs() -> list[dict]:
-    """Lese alle Log-Eintraege aus der JSONL-Datei.
-
-    TODO:
-    1. Pruefe ob LOG_FILE existiert -> wenn nicht, return leere Liste
-    2. Oeffne die Datei und lese Zeile fuer Zeile
-    3. Fuer jede nicht-leere Zeile: json.loads() und zur Liste hinzufuegen
-    4. Return die Liste
+    """Read all log entries from the JSONL file.
 
     Returns:
-        Liste von Log-Eintraegen als Dictionaries.
+        List of log entries as dictionaries. Empty list if no logs exist yet.
     """
-    pass
+    # If the log file doesn't exist yet, there's nothing to read
+    if not LOG_FILE.exists():
+        return []
+
+    # Read the file line by line and parse each line as JSON
+    logs = []
+    with LOG_FILE.open("r") as f:
+        for line in f:
+            line = line.strip()          # remove whitespace and newline characters
+            if line:                     # skip empty lines
+                logs.append(json.loads(line))  # JSON string → Python dict
+    return logs
 
 
 def get_stats() -> dict:
-    """Berechne Statistiken aus den Logs.
-
-    TODO:
-    1. Hole alle Logs mit read_logs()
-    2. Wenn keine Logs vorhanden, return:
-       {"total_requests": 0, "total_cost": 0.0, "average_cost": 0.0, "model_usage": {}}
-    3. Berechne:
-       - total_cost: Summe aller "actual_cost" Werte
-       - model_usage: Dictionary das zaehlt wie oft jedes Modell verwendet wurde
-         -> Iteriere ueber logs, fuer jeden Eintrag: model_usage[model] += 1
-    4. Return:
-       {
-           "total_requests": len(logs),
-           "total_cost": round(total_cost, 6),
-           "average_cost": round(total_cost / len(logs), 6),
-           "model_usage": model_usage,
-       }
+    """Calculate statistics from all logged requests.
 
     Returns:
-        Dictionary mit Statistiken.
+        Dictionary with:
+        - total_requests: how many requests were made
+        - total_cost: sum of all request costs
+        - average_cost: average cost per request
+        - model_usage: dict counting how often each model was used
     """
-    pass
+    # Read all log entries
+    logs = read_logs()
+
+    # If no logs exist yet, return zeroed-out stats
+    if not logs:
+        return {"total_requests": 0, "total_cost": 0.0, "average_cost": 0.0, "model_usage": {}}
+
+    # Sum up the "actual_cost" field from each log entry
+    # .get() returns 0 if the key is missing (defensive programming)
+    total_cost = sum(log.get("actual_cost", 0) for log in logs)
+
+    # Count how often each model was used
+    model_usage = {}
+    for log in logs:
+        model = log.get("model")
+        if model:
+            # .get(model, 0) returns 0 if the model isn't in the dict yet
+            model_usage[model] = model_usage.get(model, 0) + 1
+
+    return {
+        "total_requests": len(logs),
+        "total_cost": round(total_cost, 6),
+        "average_cost": round(total_cost / len(logs), 6),
+        "model_usage": model_usage,
+    }
