@@ -1,220 +1,269 @@
-# AI Model Budget Router
+<h1 align="center">AI Model Budget Router</h1>
 
-A web app that routes AI prompts to the best LLM based on budget, task type, and quality level. Uses the Groq API for fast inference.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.13-blue?style=flat&logo=python" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115.6-teal?style=flat&logo=fastapi" />
+  <img src="https://img.shields.io/badge/Streamlit-1.41.1-red?style=flat&logo=streamlit" />
+  <img src="https://img.shields.io/badge/Groq-API-orange?style=flat" />
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat" />
+</p>
 
-## Demo
+<p align="center">
+  Smart LLM routing by budget, task type, and quality — powered by Groq.
+</p>
 
-![App Screenshot](docs/images/BudgetRouterIMG.png)
+---
 
+![Screenshot](docs/images/BudgetRouterIMG.png)
 
-## Why This Project?
+---
 
-This project demonstrates:
-- **Full-Stack Development** - FastAPI backend + Streamlit frontend
-- **API Integration** - Groq LLM API with proper error handling and retry logic
-- **Cost Optimization** - Smart routing algorithm that balances quality and budget constraints
-- **Production-Ready Code** - Pydantic validation, structured logging, clean architecture
-- **Real-World Problem Solving** - Managing AI API costs is a real challenge for startups and developers
+## Overview
+
+AI Model Budget Router is a full-stack Python application that routes LLM prompts to the most suitable model based on three constraints: **budget**, **task type**, and **desired quality level**.
+
+Instead of always calling the most expensive model, the router scores all available models, filters out those that exceed the budget, and selects the best fit. Costs are estimated before each API call and verified against actuals afterwards. All requests are logged and aggregated into a `/stats` endpoint.
+
+The backend is a FastAPI REST API. The frontend is a Streamlit chat interface that lets you configure your budget and quality settings and see exactly which model was chosen and why.
+
+---
 
 ## Features
 
-- **Smart Routing** - Selects the optimal model based on task type (code, email, summarize, general), quality requirements, and budget constraints
-- **Budget Guard** - Prevents requests that would exceed your specified budget before making API calls
-- **Cost Tracking** - Logs every request with estimated and actual costs in JSONL format for analysis
-- **Interactive Chat UI** - Streamlit-based chat interface with session state, routing details, and cost breakdown
-- **Usage Dashboard** - ⚠️ Planned (not yet implemented) - Will show statistics on model usage and spending
-- **Multiple Quality Tiers** - Choose between high, medium, and low quality based on your needs
-- **Task-Specific Optimization** - Models are scored higher for tasks they excel at (e.g., LLaMA 3.3 70B gets +15 bonus for code, email, and summarize tasks)
+- **Smart routing algorithm** — scores models by quality with a task-type specialisation bonus, then picks the best affordable option
+- **Pre-call budget guard** — estimates token count and cost before calling the API; rejects requests that would exceed the budget
+- **Actual cost tracking** — calculates real cost from the token counts returned by the Groq API
+- **Request logging and stats** — aggregates total requests, total cost, average cost, and per-model usage
+- **Groq API integration** — fast inference via an async HTTPX client
+- **Streamlit chat UI** — interactive frontend with budget and quality controls and routing transparency
+- **Interactive API docs** — auto-generated Swagger UI at `/docs`
+
+---
 
 ## Tech Stack
 
-**Backend**:
-- FastAPI - Modern Python web framework with automatic OpenAPI docs
-- Pydantic - Data validation and settings management
-- HTTPX - Async HTTP client for LLM API requests
-- uvicorn - Lightning-fast ASGI server
+| Layer | Technology |
+|---|---|
+| Language | Python 3.13 |
+| Backend framework | FastAPI 0.115.6 |
+| Data validation | Pydantic 2.10.4 |
+| HTTP client | HTTPX 0.28.1 |
+| ASGI server | Uvicorn 0.34.0 |
+| Frontend | Streamlit 1.41.1 |
+| LLM provider | Groq API |
+| Config | python-dotenv 1.0.1 |
 
-**Frontend**:
-- Streamlit - Interactive web UI with real-time updates
-- Requests - HTTP client for backend communication
+---
 
-**LLM API**:
-- Groq - Ultra-fast inference API (up to 750 tokens/sec)
-- Models: LLaMA 3.3 70B, GPT-OSS 120B, GPT-OSS 20B, LLaMA 3.1 8B
+## Architecture
 
-## Prerequisites
+### Routing Algorithm
 
-- **Python 3.13** — Python 3.14 is not supported due to `pydantic-core` incompatibility
-- **Groq API Key** — Get a free key at [console.groq.com](https://console.groq.com)
+When a request arrives at `POST /route`, the router runs the following steps:
 
-## Setup
+1. **Quality filter** — remove any model whose `quality_score` falls below the threshold for the requested quality level (`low` = 0, `medium` = 60, `high` = 75)
+2. **Budget filter** — estimate the cost for each remaining model and remove those that exceed the user's budget
+3. **Scoring** — assign each candidate its base `quality_score`, plus a +15 bonus if the model lists the requested `task_type` among its strengths
+4. **Selection** — pick the highest-scoring candidate; break ties by choosing the cheapest option
+5. **Fallback** — if no model meets the quality threshold, fall back to the cheapest affordable model regardless of quality
 
-### 1. Clone & install dependencies
+### Request Flow
 
-```bash
-git clone https://github.com/YOUR_USERNAME/ai-model-api-budget-router.git
-cd ai-model-api-budget-router
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```
+User
+  └─> Streamlit UI
+        └─> POST /route
+              ├─> select_model()         — routing algorithm
+              ├─> estimate_cost()        — pre-call budget check
+              ├─> call_llm()            — Groq API (async HTTPX)
+              ├─> calculate_actual_cost()
+              ├─> log_request()
+              └─> RouteResponse
 ```
 
-### 2. Configure API key
+---
 
-```bash
-cp .env.example .env
-# Edit .env and add your Groq API key
-```
+## Available Models
 
-### 3. Run the backend
+| Model ID | Name | Quality Score | Input ($/token) | Output ($/token) | Strengths |
+|---|---|---|---|---|---|
+| `llama-3.3-70b-versatile` | LLaMA 3.3 70B Versatile | 88 | $0.00000059 | $0.00000079 | general, code, summarize |
+| `openai/gpt-oss-120b` | GPT-OSS 120B | 85 | $0.00000015 | $0.00000060 | general, code, email |
+| `openai/gpt-oss-20b` | GPT-OSS 20B | 68 | $0.000000075 | $0.00000030 | general, email |
+| `llama-3.1-8b-instant` | LLaMA 3.1 8B Instant | 55 | $0.00000005 | $0.00000008 | general |
 
-```bash
-uvicorn backend.app:app --reload
-```
+---
 
-The API will be available at `http://localhost:8000`. Check `http://localhost:8000/docs` for the interactive API documentation.
+## API Reference
 
-### 4. Run the frontend
+### GET /health
 
-```bash
-streamlit run frontend/app.py
-```
+Returns a simple status check.
 
-For the usage dashboard:
-
-```bash
-streamlit run frontend/dashboard.py
-```
-
-## Example Output
-
-When you send a prompt, the router returns detailed information about the selected model and costs:
-
+**Response**
 ```json
-{
-  "model": "llama-3.3-70b-versatile",
-  "response": "Quicksort is a divide-and-conquer sorting algorithm that works by selecting a 'pivot' element...",
-  "estimated_cost": 0.0045,
-  "actual_cost": 0.0042,
-  "tokens_used": 523,
-  "routing_reason": "Best quality match for code tasks within budget"
-}
+{ "status": "ok" }
 ```
 
-The chat UI displays this information in user-friendly expandable sections:
-- **Model Selection Details**: Selected model name and routing reason
-- **Cost Breakdown**: Estimated vs actual cost with variance percentage
-- **Token Usage**: Total tokens consumed (input + output)
-- **Session Spending Tracker**: Running total in sidebar
+---
 
-## API Endpoints
+### POST /route
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/route` | POST | Route a prompt to the best model |
-| `/stats` | GET | Get usage statistics |
+Routes a prompt to the best available model and returns the LLM response.
 
-### Example request
+**Request body**
 
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `prompt` | string | Yes | The user's text prompt (1–10,000 chars) |
+| `task_type` | string | Yes | One of: `general`, `code`, `email`, `summarize` |
+| `budget` | float | Yes | Maximum spend in USD (must be > 0) |
+| `quality` | string | No | One of: `low`, `medium` (default), `high` |
+
+**Example request**
 ```bash
 curl -X POST http://localhost:8000/route \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Explain quicksort", "task_type": "code", "budget": 0.01, "quality": "high"}'
+  -d '{
+    "prompt": "Explain async/await in Python",
+    "task_type": "general",
+    "budget": 0.01,
+    "quality": "medium"
+  }'
 ```
 
-## Available Models (via Groq)
+**Example response**
+```json
+{
+  "model": "llama-3.3-70b-versatile",
+  "response": "Async/await is Python's syntax for writing asynchronous code...",
+  "estimated_cost": 0.00000312,
+  "actual_cost": 0.00000289,
+  "tokens_used": 312,
+  "routing_reason": "Best match: LLaMA 3.3 70B Versatile (score 103, est. cost $0.00000312)"
+}
+```
 
-| Model | Quality Score | Input Price | Output Price | Strengths | Max Tokens |
-|-------|--------------|-------------|--------------|-----------|-----------|
-| LLaMA 3.3 70B Versatile | 88 | $0.00059/M | $0.00079/M | General, Code, Summarize | 32,768 |
-| GPT-OSS 120B | 85 | $0.00015/M | $0.00060/M | General, Code, Email | 65,536 |
-| GPT-OSS 20B | 68 | $0.000075/M | $0.00030/M | General, Email | 65,536 |
-| LLaMA 3.1 8B Instant | 55 | $0.00005/M | $0.00008/M | General | 131,072 |
+---
 
-*Prices per million tokens. All models via Groq API.*
+### GET /stats
 
-### Quality Thresholds
+Returns aggregated usage statistics for the current session.
 
-When you select a quality level, the router filters models:
-- **Low** (0+): All models available
-- **Medium** (60+): Excludes LLaMA 8B Instant
-- **High** (75+): Only 70B+ models (LLaMA 3.3 70B, GPT-OSS 120B)
+**Example response**
+```json
+{
+  "total_requests": 5,
+  "total_cost": 0.000142,
+  "average_cost": 0.0000284,
+  "model_usage": {
+    "llama-3.3-70b-versatile": 3,
+    "llama-3.1-8b-instant": 2
+  }
+}
+```
 
-### How Routing Works
+---
 
-1. **Filter by quality**: Remove models below the quality threshold
-2. **Filter by budget**: Estimate cost and remove unaffordable models
-3. **Score candidates**:
-   - Base score = model's quality score
-   - **+15 bonus** if task type matches model strengths
-   - Example: LLaMA 70B with "code" task → 88 + 15 = 103
-4. **Select best**: Highest score wins; cheapest breaks ties
-5. **Fallback**: If no model meets quality threshold, select cheapest affordable model
+## Getting Started
+
+### Prerequisites
+
+- Python 3.13
+- A Groq API key — sign up for free at [console.groq.com](https://console.groq.com)
+
+### Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/yourusername/ai-model-api-budget-router.git
+cd ai-model-api-budget-router
+
+# 2. Create and activate a virtual environment
+python3.13 -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+.venv\Scripts\activate           # Windows
+
+# 3. Install dependencies
+pip install -r requirements.txt
+```
+
+### Configuration
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set your Groq API key:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+### Running the Application
+
+Start the backend and frontend in two separate terminals.
+
+**Terminal 1 — Backend**
+```bash
+uvicorn backend.app:app --reload
+# API available at http://localhost:8000
+# Swagger docs at http://localhost:8000/docs
+```
+
+**Terminal 2 — Frontend**
+```bash
+streamlit run frontend/dashboard.py
+# UI available at http://localhost:8501
+```
+
+---
 
 ## Project Structure
 
 ```
-backend/
-  app.py              # FastAPI server
-  routing.py          # Model selection logic
-  model_config.py     # Model definitions and pricing
-  cost_estimator.py   # Token estimation and cost calculation
-  budget_guard.py     # Budget validation
-  llm_client.py       # Groq API client
-  logging_service.py  # JSONL request logging
-  schemas.py          # Pydantic data models
-frontend/
-  app.py              # Streamlit main UI
-  dashboard.py        # Usage dashboard
-logs/                 # Request logs (JSONL)
+ai-model-api-budget-router/
+├── backend/
+│   ├── app.py              # FastAPI app — all three endpoints
+│   ├── routing.py          # Model selection algorithm
+│   ├── model_config.py     # Model definitions and pricing
+│   ├── budget_guard.py     # Pre-call budget enforcement
+│   ├── cost_estimator.py   # Token and cost estimation
+│   ├── llm_client.py       # Async Groq API client (HTTPX)
+│   ├── logging_service.py  # Request logging and stats aggregation
+│   └── schemas.py          # Pydantic request/response models
+├── frontend/
+│   └── dashboard.py        # Streamlit chat UI
+├── docs/
+│   └── images/
+│       └── BudgetRouterIMG.png
+├── logs/                   # Request logs (content gitignored)
+├── .env.example
+├── requirements.txt
+└── README.md
 ```
 
-## Roadmap & Future Features
+---
 
-Planned enhancements to make this project even more powerful:
+## Roadmap
 
-### Dashboard Implementation (High Priority)
-- ✅ Backend API ready (`GET /stats`)
-- 📋 TODO: Implement `frontend/dashboard.py`
-  - Real-time usage metrics (requests, costs, avg cost per request)
-  - Model usage distribution (pie/bar charts)
-  - Cost trends over time (line chart)
-  - Request history table with filtering
-  - Auto-refresh every 5 seconds
+**Completed**
+- Smart multi-model routing algorithm with quality and budget filtering
+- Pre-call cost estimation and budget guard
+- Groq API integration via async HTTPX
+- Token estimation heuristics
+- Request logging and `/stats` endpoint
+- Streamlit chat UI with routing transparency
+- Interactive API docs via FastAPI / Swagger
 
-### Advanced Budget Management
-- **Monthly/Daily Budget Limits**: Set recurring budget caps with auto-reset
-- **Budget Alerts**: Notifications when approaching limits (80%, 90%, 100%)
-- **Cost Forecasting**: Predict monthly costs based on usage patterns
-- **Budget per Task Type**: Separate budgets for code, email, summarize tasks
+**Planned**
+- Persistent log storage (SQLite or file-based)
+- Cost dashboard with charts in Streamlit
+- Per-session budget limits
+- Rate limiting
 
-### Model Comparison & A/B Testing
-- **Side-by-side Comparison**: Get responses from multiple models simultaneously
-- **Response Quality Voting**: Rate responses to improve routing over time
-- **Model Performance Analytics**: Track which models perform best for each task type
-- **Custom Routing Rules**: Override default routing with user-defined preferences
-
-### Analytics & Insights
-- **Token Usage Trends**: Daily/weekly/monthly token consumption charts
-- **Cost Optimization Suggestions**: Identify opportunities to reduce costs
-- **Task Type Distribution**: See which task types you use most
-- **Response Time Metrics**: Track API latency and response times
-- **Quality vs Cost Trade-off Analysis**: Visualize quality/cost relationships
-
-### Multi-User Support
-- **User Accounts**: Authentication with separate budgets per user
-- **Team Workspaces**: Shared budgets and chat history for teams
-- **Role-based Access**: Admin, user, viewer roles with different permissions
-- **Usage Attribution**: Track costs per user/team member
-
-### Advanced Routing Features
-- **Custom Model Weights**: Fine-tune scoring algorithm per user preferences
-- **Model Blacklist/Whitelist**: Exclude or prefer specific models
-- **Conditional Routing**: Different routing rules based on time, budget remaining, etc.
-- **Manual Model Override**: Option to manually select a specific model
-- **Hybrid Routing**: Combine multiple models' outputs for critical tasks
+---
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
